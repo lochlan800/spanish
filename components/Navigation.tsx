@@ -60,6 +60,17 @@ export function Navigation() {
             >
               Stats
             </Link>
+
+            <Link
+              href="/playlist"
+              className={`rounded px-3 py-2 ${
+                isActive('/playlist')
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Playlist
+            </Link>
           </div>
         </div>
       </div>
