@@ -30,15 +30,43 @@ export function usePlaylist() {
 
   useEffect(() => {
     const audio = audioRef.current;
+    if (!audio || shuffledPlaylist.length === 0) return;
+
+    const currentRec = shuffledPlaylist[currentIndex];
+    if (currentRec && currentRec.audioUrl) {
+      audio.src = currentRec.audioUrl;
+      audio.load();
+    }
+  }, [currentIndex, shuffledPlaylist]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
     if (!audio) return;
 
     const handleEnded = () => {
-      skipNext();
+      if (shuffledPlaylist.length === 0) return;
+      const nextIndex = (currentIndex + 1) % shuffledPlaylist.length;
+      setCurrentIndex(nextIndex);
+      setIsPlaying(true);
     };
 
     audio.addEventListener('ended', handleEnded);
     return () => audio.removeEventListener('ended', handleEnded);
   }, [currentIndex, shuffledPlaylist]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying && audio.src) {
+      audio.play().catch((err) => {
+        console.error('Playback failed:', err);
+        setIsPlaying(false);
+      });
+    } else if (!isPlaying) {
+      audio.pause();
+    }
+  }, [isPlaying, currentIndex, shuffledPlaylist]);
 
   const shuffle = () => {
     if (recordings.length === 0) return;
@@ -49,17 +77,13 @@ export function usePlaylist() {
   };
 
   const play = () => {
-    if (audioRef.current && shuffledPlaylist.length > 0) {
-      audioRef.current.play();
+    if (shuffledPlaylist.length > 0) {
       setIsPlaying(true);
     }
   };
 
   const pause = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
+    setIsPlaying(false);
   };
 
   const togglePlayPause = () => {
@@ -72,39 +96,22 @@ export function usePlaylist() {
 
   const skipNext = () => {
     if (shuffledPlaylist.length === 0) return;
-
     const nextIndex = (currentIndex + 1) % shuffledPlaylist.length;
     setCurrentIndex(nextIndex);
     setIsPlaying(true);
-
-    if (audioRef.current && shuffledPlaylist[nextIndex].audioUrl) {
-      audioRef.current.src = shuffledPlaylist[nextIndex].audioUrl || '';
-      audioRef.current.play();
-    }
   };
 
   const skipPrevious = () => {
     if (shuffledPlaylist.length === 0) return;
-
     const prevIndex = currentIndex === 0 ? shuffledPlaylist.length - 1 : currentIndex - 1;
     setCurrentIndex(prevIndex);
     setIsPlaying(true);
-
-    if (audioRef.current && shuffledPlaylist[prevIndex].audioUrl) {
-      audioRef.current.src = shuffledPlaylist[prevIndex].audioUrl || '';
-      audioRef.current.play();
-    }
   };
 
   const playRecording = (index: number) => {
     if (index >= 0 && index < shuffledPlaylist.length) {
       setCurrentIndex(index);
       setIsPlaying(true);
-
-      if (audioRef.current && shuffledPlaylist[index].audioUrl) {
-        audioRef.current.src = shuffledPlaylist[index].audioUrl || '';
-        audioRef.current.play();
-      }
     }
   };
 
