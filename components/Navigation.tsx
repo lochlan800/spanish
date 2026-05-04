@@ -71,6 +71,17 @@ export function Navigation() {
             >
               Playlist
             </Link>
+
+            <Link
+              href="/sentences"
+              className={`rounded px-3 py-2 ${
+                isActive('/sentences')
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Sentences
+            </Link>
           </div>
         </div>
       </div>
