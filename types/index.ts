@@ -4,6 +4,7 @@ export interface Recording {
   uploadedAt: number;
   audioUrl?: string;
   audioBlob?: Blob;
+  audioBase64?: string;
   metadata: {
     duration: number;
     format: string;
