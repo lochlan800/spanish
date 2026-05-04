@@ -2,7 +2,8 @@ export interface Recording {
   id: string;
   filename: string;
   uploadedAt: number;
-  audioUrl: string;
+  audioUrl?: string;
+  audioBlob?: Blob;
   metadata: {
     duration: number;
     format: string;

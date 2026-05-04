@@ -77,8 +77,8 @@ export function usePlaylist() {
     setCurrentIndex(nextIndex);
     setIsPlaying(true);
 
-    if (audioRef.current) {
-      audioRef.current.src = shuffledPlaylist[nextIndex].audioUrl;
+    if (audioRef.current && shuffledPlaylist[nextIndex].audioUrl) {
+      audioRef.current.src = shuffledPlaylist[nextIndex].audioUrl || '';
       audioRef.current.play();
     }
   };
@@ -90,8 +90,8 @@ export function usePlaylist() {
     setCurrentIndex(prevIndex);
     setIsPlaying(true);
 
-    if (audioRef.current) {
-      audioRef.current.src = shuffledPlaylist[prevIndex].audioUrl;
+    if (audioRef.current && shuffledPlaylist[prevIndex].audioUrl) {
+      audioRef.current.src = shuffledPlaylist[prevIndex].audioUrl || '';
       audioRef.current.play();
     }
   };
@@ -101,8 +101,8 @@ export function usePlaylist() {
       setCurrentIndex(index);
       setIsPlaying(true);
 
-      if (audioRef.current) {
-        audioRef.current.src = shuffledPlaylist[index].audioUrl;
+      if (audioRef.current && shuffledPlaylist[index].audioUrl) {
+        audioRef.current.src = shuffledPlaylist[index].audioUrl || '';
         audioRef.current.play();
       }
     }
