@@ -41,8 +41,14 @@ export default function PlaylistPage() {
   };
 
   const filteredRecordings = recordings.filter((rec) => rec.mixId === selectedMixId);
-  const currentRecording = shuffledPlaylist[currentIndex];
+  const filteredShuffledPlaylist = shuffledPlaylist.filter((rec) => rec.mixId === selectedMixId);
+  const currentRecording = filteredShuffledPlaylist[currentIndex];
   const selectedMixName = mixes.find((m) => m.id === selectedMixId)?.name;
+
+  const handleShuffleForMix = () => {
+    if (filteredRecordings.length === 0) return;
+    shuffle();
+  };
 
   if (isLoading) {
     return (
@@ -104,7 +110,7 @@ export default function PlaylistPage() {
               currentRecording={currentRecording}
               isPlaying={isPlaying}
               currentIndex={currentIndex}
-              totalRecordings={shuffledPlaylist.length}
+              totalRecordings={filteredShuffledPlaylist.length}
               onTogglePlay={togglePlayPause}
               onSkipNext={skipNext}
               onSkipPrevious={skipPrevious}
@@ -112,16 +118,16 @@ export default function PlaylistPage() {
 
             <div className="mt-6">
               <button
-                onClick={shuffle}
+                onClick={handleShuffleForMix}
                 className="w-full rounded bg-purple-500 px-6 py-3 text-lg font-semibold text-white hover:bg-purple-600"
               >
                 🔀 Shuffle All ({filteredRecordings.length})
               </button>
             </div>
 
-            {shuffledPlaylist.length > 0 && (
+            {filteredShuffledPlaylist.length > 0 && (
               <div className="mt-4 rounded-lg bg-blue-50 p-3 text-center text-sm text-blue-700">
-                {shuffledPlaylist.length} recordings in shuffle mode
+                {filteredShuffledPlaylist.length} recordings in shuffle mode
               </div>
             )}
           </div>
@@ -129,10 +135,10 @@ export default function PlaylistPage() {
           <div>
             <h2 className="mb-4 text-xl font-semibold">Playlist Queue</h2>
             <div className="space-y-2 max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-white p-4">
-              {shuffledPlaylist.length === 0 ? (
+              {filteredShuffledPlaylist.length === 0 ? (
                 <p className="text-gray-600">Click "Shuffle All" to create a playlist</p>
               ) : (
-                shuffledPlaylist.map((rec, index) => (
+                filteredShuffledPlaylist.map((rec, index) => (
                   <div
                     key={rec.id}
                     onClick={() => playRecording(index)}
