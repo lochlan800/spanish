@@ -26,10 +26,10 @@ export function useRecordings() {
     loadRecordings();
   }, []);
 
-  const uploadRecording = async (file: File) => {
+  const uploadRecording = async (file: File, mixId: string) => {
     try {
       setError(null);
-      const recording = await createRecording(file);
+      const recording = await createRecording(file, mixId);
       setRecordings((prev) => [...prev, recording]);
       return recording;
     } catch (err) {

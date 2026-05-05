@@ -21,7 +21,8 @@ function base64ToBlob(base64: string, type: string): Blob {
 }
 
 export async function createRecording(
-  file: File
+  file: File,
+  mixId: string
 ): Promise<Recording> {
   const arrayBuffer = await file.arrayBuffer();
   const audioBase64 = arrayBufferToBase64(arrayBuffer);
@@ -46,6 +47,7 @@ export async function createRecording(
     id: uuidv4(),
     filename: file.name,
     uploadedAt: Date.now(),
+    mixId,
     audioBase64,
     metadata: {
       duration,

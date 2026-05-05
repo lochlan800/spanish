@@ -1,7 +1,7 @@
-import { Card, Recording, UserStats } from '@/types';
+import { Card, Recording, UserStats, Mix } from '@/types';
 
 const DB_NAME = 'SpanishLearner';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let db: IDBDatabase | null = null;
 
@@ -20,13 +20,19 @@ export async function initDB(): Promise<IDBDatabase> {
     request.onupgradeneeded = (event) => {
       const database = (event.target as IDBOpenDBRequest).result;
 
+      if (!database.objectStoreNames.contains('mixes')) {
+        database.createObjectStore('mixes', { keyPath: 'id' });
+      }
+
       if (!database.objectStoreNames.contains('recordings')) {
-        database.createObjectStore('recordings', { keyPath: 'id' });
+        const recStore = database.createObjectStore('recordings', { keyPath: 'id' });
+        recStore.createIndex('mixId', 'mixId', { unique: false });
       }
 
       if (!database.objectStoreNames.contains('cards')) {
         const cardStore = database.createObjectStore('cards', { keyPath: 'id' });
         cardStore.createIndex('recordingId', 'recordingId', { unique: false });
+        cardStore.createIndex('mixId', 'mixId', { unique: false });
         cardStore.createIndex('nextReviewDate', 'nextReviewDate', { unique: false });
       }
 
@@ -204,6 +210,112 @@ export async function getUserStats(): Promise<UserStats> {
   });
 }
 
+export async function addMix(mix: Mix): Promise<string> {
+  const database = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(['mixes'], 'readwrite');
+    const store = tx.objectStore('mixes');
+    const request = store.add(mix);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result as string);
+  });
+}
+
+export async function getMixes(): Promise<Mix[]> {
+  const database = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(['mixes'], 'readonly');
+    const store = tx.objectStore('mixes');
+    const request = store.getAll();
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result as Mix[]);
+  });
+}
+
+export async function getMix(id: string): Promise<Mix | undefined> {
+  const database = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(['mixes'], 'readonly');
+    const store = tx.objectStore('mixes');
+    const request = store.get(id);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+export async function updateMix(mix: Mix): Promise<void> {
+  const database = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(['mixes'], 'readwrite');
+    const store = tx.objectStore('mixes');
+    const request = store.put(mix);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
+export async function deleteMix(id: string): Promise<void> {
+  const database = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(['mixes', 'recordings', 'cards'], 'readwrite');
+
+    const mixStore = tx.objectStore('mixes');
+    mixStore.delete(id);
+
+    const recIndex = tx.objectStore('recordings').index('mixId');
+    const cardsIndex = tx.objectStore('cards').index('mixId');
+
+    recIndex.openCursor(IDBKeyRange.only(id)).onsuccess = (e: any) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        tx.objectStore('recordings').delete(cursor.primaryKey);
+        cursor.continue();
+      }
+    };
+
+    cardsIndex.openCursor(IDBKeyRange.only(id)).onsuccess = (e: any) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        tx.objectStore('cards').delete(cursor.primaryKey);
+        cursor.continue();
+      }
+    };
+
+    tx.onerror = () => reject(tx.error);
+    tx.oncomplete = () => resolve();
+  });
+}
+
+export async function getRecordingsByMix(mixId: string): Promise<Recording[]> {
+  const database = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(['recordings'], 'readonly');
+    const store = tx.objectStore('recordings');
+    const index = store.index('mixId');
+    const request = index.getAll(mixId);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result as Recording[]);
+  });
+}
+
+export async function getCardsByMix(mixId: string): Promise<Card[]> {
+  const database = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(['cards'], 'readonly');
+    const store = tx.objectStore('cards');
+    const index = store.index('mixId');
+    const request = index.getAll(mixId);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result as Card[]);
+  });
+}
+
 export async function updateUserStats(stats: UserStats): Promise<void> {
   const database = await getDB();
   return new Promise((resolve, reject) => {
@@ -219,11 +331,12 @@ export async function updateUserStats(stats: UserStats): Promise<void> {
 export async function clearDatabase(): Promise<void> {
   const database = await getDB();
   return new Promise((resolve, reject) => {
-    const tx = database.transaction(['recordings', 'cards', 'userStats'], 'readwrite');
+    const tx = database.transaction(['mixes', 'recordings', 'cards', 'userStats'], 'readwrite');
 
-    const recReq = tx.objectStore('recordings').clear();
-    const cardReq = tx.objectStore('cards').clear();
-    const statsReq = tx.objectStore('userStats').clear();
+    tx.objectStore('mixes').clear();
+    tx.objectStore('recordings').clear();
+    tx.objectStore('cards').clear();
+    tx.objectStore('userStats').clear();
 
     tx.onerror = () => reject(tx.error);
     tx.oncomplete = () => resolve();

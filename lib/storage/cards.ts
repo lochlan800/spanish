@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export async function createCard(
   recordingId: string,
+  mixId: string,
   english: string,
   spanish: string,
   audioStartTime: number,
@@ -15,6 +16,7 @@ export async function createCard(
   const card: Card = {
     id: uuidv4(),
     recordingId,
+    mixId,
     english,
     spanish,
     audioStartTime,
@@ -57,6 +59,11 @@ export async function deleteCard(id: string): Promise<void> {
 
 export async function getDueCards(): Promise<Card[]> {
   return dbGetCardsDue();
+}
+
+export async function getDueCardsByMix(mixId: string): Promise<Card[]> {
+  const allDueCards = await getDueCards();
+  return allDueCards.filter((c) => c.mixId === mixId);
 }
 
 export async function reviewCard(cardId: string, quality: number): Promise<Card> {

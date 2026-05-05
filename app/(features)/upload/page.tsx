@@ -1,18 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRecordings } from '@/lib/hooks/useRecordings';
 import { FileUploader } from '@/components/FileUploader';
 import { getCardsByRecording, createCard } from '@/lib/storage/cards';
 import { getRecording } from '@/lib/storage/recordings';
-import { Recording } from '@/types';
+import { getAllMixes, createMix } from '@/lib/storage/mixes';
+import { Recording, Mix } from '@/types';
 import { AudioPlayer } from '@/components/AudioPlayer';
 
-type Step = 'upload' | 'create-cards';
+type Step = 'select-mix' | 'upload' | 'create-cards';
 
 export default function UploadPage() {
-  const { recordings, uploadRecording, isLoading } = useRecordings();
-  const [step, setStep] = useState<Step>('upload');
+  const { recordings, uploadRecording, isLoading: recordingsLoading } = useRecordings();
+  const [step, setStep] = useState<Step>('select-mix');
+  const [mixes, setMixes] = useState<Mix[]>([]);
+  const [selectedMixId, setSelectedMixId] = useState<string>('');
+  const [newMixName, setNewMixName] = useState('');
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
   const [english, setEnglish] = useState('');
   const [spanish, setSpanish] = useState('');
@@ -21,10 +25,43 @@ export default function UploadPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    loadMixes();
+  }, []);
+
+  const loadMixes = async () => {
+    try {
+      const allMixes = await getAllMixes();
+      setMixes(allMixes);
+      if (allMixes.length > 0) {
+        setSelectedMixId(allMixes[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to load mixes:', err);
+    }
+  };
+
+  const handleCreateNewMix = async () => {
+    if (!newMixName.trim()) {
+      setError('Please enter a mix name');
+      return;
+    }
+
+    try {
+      const mix = await createMix(newMixName);
+      setMixes((prev) => [...prev, mix]);
+      setSelectedMixId(mix.id);
+      setNewMixName('');
+      setStep('upload');
+    } catch (err) {
+      setError('Failed to create mix');
+    }
+  };
+
   const handleUpload = async (file: File) => {
     try {
       setError(null);
-      await uploadRecording(file);
+      await uploadRecording(file, selectedMixId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     }
@@ -49,6 +86,7 @@ export default function UploadPage() {
       setError(null);
       await createCard(
         selectedRecording.id,
+        selectedMixId,
         english,
         spanish,
         startTime,
@@ -66,137 +104,202 @@ export default function UploadPage() {
     }
   };
 
-  return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-8 text-3xl font-bold">Upload & Create Cards</h1>
+  const selectMix = (mixId: string) => {
+    setSelectedMixId(mixId);
+    setStep('upload');
+  };
 
-      {step === 'upload' && (
-        <div>
+  if (step === 'select-mix') {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <h1 className="mb-8 text-3xl font-bold">Select or Create a Mix</h1>
+
+        {mixes.length > 0 && (
           <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
-            <h2 className="mb-4 text-xl font-semibold">Step 1: Upload Audio Files</h2>
-            <FileUploader
-              onUpload={handleUpload}
-              isLoading={isLoading}
-              error={error}
-            />
+            <h2 className="mb-4 text-xl font-semibold">Your Mixes</h2>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {mixes.map((mix) => (
+                <button
+                  key={mix.id}
+                  onClick={() => selectMix(mix.id)}
+                  className="rounded-lg border-2 border-gray-300 p-4 text-left hover:border-blue-500 hover:bg-blue-50"
+                >
+                  <p className="font-semibold text-gray-900">{mix.name}</p>
+                </button>
+              ))}
+            </div>
           </div>
+        )}
 
-          {recordings.length > 0 && (
-            <div className="rounded-lg border border-gray-200 bg-white p-6">
-              <h2 className="mb-4 text-xl font-semibold">Your Recordings</h2>
-              <div className="space-y-3">
-                {recordings.map((rec) => (
-                  <div
-                    key={rec.id}
-                    className="flex items-center justify-between rounded-lg border border-gray-300 p-4"
-                  >
-                    <div>
-                      <p className="font-semibold text-gray-900">{rec.filename}</p>
-                      <p className="text-sm text-gray-600">
-                        Duration: {rec.metadata.duration.toFixed(1)}s
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => selectRecording(rec.id)}
-                      className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-                    >
-                      Create Cards →
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {step === 'create-cards' && selectedRecording && (
-        <div>
-          <button
-            onClick={() => setStep('upload')}
-            className="mb-4 rounded bg-gray-300 px-4 py-2 hover:bg-gray-400"
-          >
-            ← Back
-          </button>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <h2 className="mb-4 text-xl font-semibold">
-              Create Card for: {selectedRecording.filename}
-            </h2>
-
-            <div className="mb-6">
-              <h3 className="mb-4 text-lg font-semibold">Audio Preview</h3>
-              <AudioPlayer audioUrl={selectedRecording.audioUrl} />
-            </div>
-
-            <div className="mb-6 grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700">
-                  Start Time (seconds)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={startTime}
-                  onChange={(e) => setStartTime(parseFloat(e.target.value))}
-                  className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700">
-                  End Time (seconds)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={endTime}
-                  onChange={(e) => setEndTime(parseFloat(e.target.value))}
-                  className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
-                />
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700">
-                English Text
-              </label>
-              <input
-                type="text"
-                value={english}
-                onChange={(e) => setEnglish(e.target.value)}
-                placeholder="Enter the English sentence"
-                className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
-              />
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700">
-                Spanish Translation
-              </label>
-              <input
-                type="text"
-                value={spanish}
-                onChange={(e) => setSpanish(e.target.value)}
-                placeholder="Enter the Spanish translation"
-                className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
-              />
-            </div>
-
-            {error && <div className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</div>}
-
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-xl font-semibold">Create New Mix</h2>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={newMixName}
+              onChange={(e) => setNewMixName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleCreateNewMix()}
+              placeholder="E.g., Travelling, Home, Business..."
+              className="flex-1 rounded border border-gray-300 px-3 py-2"
+            />
             <button
-              onClick={handleSaveCard}
-              disabled={isSaving}
-              className="w-full rounded bg-green-500 px-4 py-2 text-white hover:bg-green-600 disabled:bg-gray-400"
+              onClick={handleCreateNewMix}
+              className="rounded bg-blue-500 px-6 py-2 text-white hover:bg-blue-600"
             >
-              {isSaving ? '💾 Saving...' : '✅ Save Card'}
+              Create
             </button>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  if (step === 'upload') {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <button
+          onClick={() => setStep('select-mix')}
+          className="mb-4 rounded bg-gray-300 px-4 py-2 hover:bg-gray-400"
+        >
+          ← Change Mix
+        </button>
+
+        <h1 className="mb-2 text-3xl font-bold">Upload Recordings</h1>
+        <p className="mb-6 text-gray-600">
+          Uploading to:{' '}
+          <span className="font-semibold">
+            {mixes.find((m) => m.id === selectedMixId)?.name}
+          </span>
+        </p>
+
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-xl font-semibold">Step 1: Upload Audio Files</h2>
+          <FileUploader
+            onUpload={handleUpload}
+            isLoading={recordingsLoading}
+            error={error}
+          />
+        </div>
+
+        {recordings.length > 0 && (
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <h2 className="mb-4 text-xl font-semibold">Your Recordings</h2>
+            <div className="space-y-3">
+              {recordings.map((rec) => (
+                <div
+                  key={rec.id}
+                  className="flex items-center justify-between rounded-lg border border-gray-300 p-4"
+                >
+                  <div>
+                    <p className="font-semibold text-gray-900">{rec.filename}</p>
+                    <p className="text-sm text-gray-600">
+                      Duration: {rec.metadata.duration.toFixed(1)}s
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => selectRecording(rec.id)}
+                    className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+                  >
+                    Create Cards →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (step === 'create-cards' && selectedRecording) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <button
+          onClick={() => setStep('upload')}
+          className="mb-4 rounded bg-gray-300 px-4 py-2 hover:bg-gray-400"
+        >
+          ← Back
+        </button>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-xl font-semibold">
+            Create Card for: {selectedRecording.filename}
+          </h2>
+
+          <div className="mb-6">
+            <h3 className="mb-4 text-lg font-semibold">Audio Preview</h3>
+            <AudioPlayer audioUrl={selectedRecording.audioUrl} />
+          </div>
+
+          <div className="mb-6 grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700">
+                Start Time (seconds)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={startTime}
+                onChange={(e) => setStartTime(parseFloat(e.target.value))}
+                className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700">
+                End Time (seconds)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={endTime}
+                onChange={(e) => setEndTime(parseFloat(e.target.value))}
+                className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
+              />
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700">
+              English Text
+            </label>
+            <input
+              type="text"
+              value={english}
+              onChange={(e) => setEnglish(e.target.value)}
+              placeholder="Enter the English sentence"
+              className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700">
+              Spanish Translation
+            </label>
+            <input
+              type="text"
+              value={spanish}
+              onChange={(e) => setSpanish(e.target.value)}
+              placeholder="Enter the Spanish translation"
+              className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
+            />
+          </div>
+
+          {error && <div className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</div>}
+
+          <button
+            onClick={handleSaveCard}
+            disabled={isSaving}
+            className="w-full rounded bg-green-500 px-4 py-2 text-white hover:bg-green-600 disabled:bg-gray-400"
+          >
+            {isSaving ? '💾 Saving...' : '✅ Save Card'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }

@@ -1,7 +1,14 @@
+export interface Mix {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
 export interface Recording {
   id: string;
   filename: string;
   uploadedAt: number;
+  mixId: string;
   audioUrl?: string;
   audioBlob?: Blob;
   audioBase64?: string;
@@ -15,6 +22,7 @@ export interface Recording {
 export interface Card {
   id: string;
   recordingId: string;
+  mixId: string;
   english: string;
   spanish: string;
   audioStartTime: number;
