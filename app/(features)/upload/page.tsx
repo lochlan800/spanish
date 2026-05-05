@@ -8,6 +8,7 @@ import { getRecording } from '@/lib/storage/recordings';
 import { getAllMixes, createMix, getRecordingsInMix } from '@/lib/storage/mixes';
 import { Recording, Mix } from '@/types';
 import { AudioPlayer } from '@/components/AudioPlayer';
+import { transcribeAudioSegment, isSpeechRecognitionSupported } from '@/lib/utils/speechRecognition';
 
 type Step = 'select-mix' | 'upload' | 'create-cards';
 
@@ -24,6 +25,7 @@ export default function UploadPage() {
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -126,6 +128,30 @@ export default function UploadPage() {
   const selectMix = (mixId: string) => {
     setSelectedMixId(mixId);
     setStep('upload');
+  };
+
+  const handleAutoTranscribe = async () => {
+    if (!selectedRecording || endTime === 0) {
+      setError('Please set start and end times before transcribing');
+      return;
+    }
+
+    try {
+      setIsTranscribing(true);
+      setError(null);
+      const transcript = await transcribeAudioSegment(
+        selectedRecording.audioUrl,
+        startTime,
+        endTime
+      );
+      // Populate both fields with transcribed text - user can edit
+      setEnglish(transcript);
+      setSpanish(transcript);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Transcription failed');
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   if (step === 'select-mix') {
@@ -244,6 +270,29 @@ export default function UploadPage() {
             <h3 className="mb-4 text-lg font-semibold">Audio Preview</h3>
             <AudioPlayer audioUrl={selectedRecording.audioUrl} />
           </div>
+
+          {isSpeechRecognitionSupported() && (
+            <div className="mb-6 rounded-lg bg-blue-50 p-4 border border-blue-200">
+              <p className="text-sm text-blue-700 mb-3">
+                💡 Set start and end times, then click to automatically transcribe the audio segment
+              </p>
+              <button
+                onClick={handleAutoTranscribe}
+                disabled={isTranscribing || endTime === 0}
+                className="w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:bg-gray-400"
+              >
+                {isTranscribing ? '🎤 Transcribing...' : '🎤 Auto-Transcribe'}
+              </button>
+            </div>
+          )}
+
+          {!isSpeechRecognitionSupported() && (
+            <div className="mb-6 rounded-lg bg-yellow-50 p-4 border border-yellow-200">
+              <p className="text-sm text-yellow-700">
+                ⚠️ Speech Recognition is not supported in this browser. Please enter text manually.
+              </p>
+            </div>
+          )}
 
           <div className="mb-6 grid grid-cols-2 gap-4">
             <div>
