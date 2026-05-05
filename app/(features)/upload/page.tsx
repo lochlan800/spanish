@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRecordings } from '@/lib/hooks/useRecordings';
 import { FileUploader } from '@/components/FileUploader';
-import { getCardsByRecording, createCard } from '@/lib/storage/cards';
+import { createCard } from '@/lib/storage/cards';
 import { getRecording } from '@/lib/storage/recordings';
-import { getAllMixes, createMix } from '@/lib/storage/mixes';
+import { getAllMixes, createMix, getRecordingsInMix } from '@/lib/storage/mixes';
 import { Recording, Mix } from '@/types';
 import { AudioPlayer } from '@/components/AudioPlayer';
 
@@ -18,6 +18,7 @@ export default function UploadPage() {
   const [selectedMixId, setSelectedMixId] = useState<string>('');
   const [newMixName, setNewMixName] = useState('');
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
+  const [mixRecordings, setMixRecordings] = useState<Recording[]>([]);
   const [english, setEnglish] = useState('');
   const [spanish, setSpanish] = useState('');
   const [startTime, setStartTime] = useState(0);
@@ -29,6 +30,12 @@ export default function UploadPage() {
     loadMixes();
   }, []);
 
+  useEffect(() => {
+    if (selectedMixId && step === 'upload') {
+      loadMixRecordings();
+    }
+  }, [selectedMixId, step]);
+
   const loadMixes = async () => {
     try {
       const allMixes = await getAllMixes();
@@ -38,6 +45,15 @@ export default function UploadPage() {
       }
     } catch (err) {
       console.error('Failed to load mixes:', err);
+    }
+  };
+
+  const loadMixRecordings = async () => {
+    try {
+      const recordings = await getRecordingsInMix(selectedMixId);
+      setMixRecordings(recordings);
+    } catch (err) {
+      console.error('Failed to load recordings:', err);
     }
   };
 
@@ -62,6 +78,7 @@ export default function UploadPage() {
     try {
       setError(null);
       await uploadRecording(file, selectedMixId);
+      await loadMixRecordings();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     }
@@ -97,6 +114,8 @@ export default function UploadPage() {
       setStartTime(0);
       setEndTime(0);
       alert('Card created successfully!');
+      setStep('upload');
+      await loadMixRecordings();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create card');
     } finally {
@@ -167,13 +186,41 @@ export default function UploadPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-xl font-semibold">Upload Audio Files</h2>
           <FileUploader
             onUpload={handleUpload}
             isLoading={recordingsLoading}
             error={error}
           />
         </div>
+
+        {mixRecordings.length > 0 && (
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <h2 className="mb-4 text-xl font-semibold">Recordings in {mixes.find((m) => m.id === selectedMixId)?.name}</h2>
+            <div className="space-y-3">
+              {mixRecordings.map((rec) => (
+                <div
+                  key={rec.id}
+                  className="flex items-center justify-between rounded-lg border border-gray-300 p-4"
+                >
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">{rec.filename}</p>
+                    <p className="text-sm text-gray-600">
+                      Duration: {rec.metadata.duration.toFixed(1)}s
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => selectRecording(rec.id)}
+                    className="ml-4 rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+                  >
+                    Create Card →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
