@@ -304,7 +304,7 @@ export default function UploadPage() {
                 min="0"
                 step="0.1"
                 value={startTime}
-                onChange={(e) => setStartTime(parseFloat(e.target.value))}
+                onChange={(e) => setStartTime(e.target.value === '' ? 0 : parseFloat(e.target.value))}
                 className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
               />
             </div>
@@ -318,7 +318,7 @@ export default function UploadPage() {
                 min="0"
                 step="0.1"
                 value={endTime}
-                onChange={(e) => setEndTime(parseFloat(e.target.value))}
+                onChange={(e) => setEndTime(e.target.value === '' ? 0 : parseFloat(e.target.value))}
                 className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
               />
             </div>
