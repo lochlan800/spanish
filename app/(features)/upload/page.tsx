@@ -8,7 +8,7 @@ import { getRecording } from '@/lib/storage/recordings';
 import { getAllMixes, createMix, getRecordingsInMix } from '@/lib/storage/mixes';
 import { Recording, Mix } from '@/types';
 import { AudioPlayer } from '@/components/AudioPlayer';
-import { transcribeAudioSegment, isSpeechRecognitionSupported } from '@/lib/utils/speechRecognition';
+import { transcribeAudioSegment, ProgressCallback } from '@/lib/utils/whisperTranscribe';
 
 type Step = 'select-mix' | 'upload' | 'create-cards';
 
@@ -25,7 +25,8 @@ export default function UploadPage() {
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcribingLang, setTranscribingLang] = useState<'english' | 'spanish' | null>(null);
+  const [modelStatus, setModelStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -130,27 +131,45 @@ export default function UploadPage() {
     setStep('upload');
   };
 
-  const handleAutoTranscribe = async () => {
-    if (!selectedRecording || !selectedRecording.audioUrl || endTime === 0) {
-      setError('Please set start and end times before transcribing');
+  const handleAutoTranscribe = async (language: 'english' | 'spanish') => {
+    if (!selectedRecording || !selectedRecording.audioUrl || endTime <= startTime) {
+      setError('Please set valid start and end times before transcribing');
       return;
     }
 
+    const onProgress: ProgressCallback = (info) => {
+      if (info.status === 'progress' && info.progress !== undefined) {
+        setModelStatus(`Loading model: ${info.progress.toFixed(0)}%${info.file ? ' (' + info.file + ')' : ''}`);
+      } else if (info.status === 'ready') {
+        setModelStatus('');
+      } else if (info.status === 'download' || info.status === 'initiate') {
+        setModelStatus(`Loading model${info.file ? ': ' + info.file : '...'}`);
+      }
+    };
+
     try {
-      setIsTranscribing(true);
+      setTranscribingLang(language);
       setError(null);
-      const transcript = await transcribeAudioSegment(
+      setModelStatus('Preparing transcription...');
+
+      const result = await transcribeAudioSegment(
         selectedRecording.audioUrl,
         startTime,
-        endTime
+        endTime,
+        { language, onProgress }
       );
-      // Populate both fields with transcribed text - user can edit
-      setEnglish(transcript);
-      setSpanish(transcript);
+
+      if (language === 'english') {
+        setEnglish(result.text);
+      } else {
+        setSpanish(result.text);
+      }
+      setModelStatus('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Transcription failed');
+      setModelStatus('');
     } finally {
-      setIsTranscribing(false);
+      setTranscribingLang(null);
     }
   };
 
@@ -271,28 +290,31 @@ export default function UploadPage() {
             <AudioPlayer audioUrl={selectedRecording.audioUrl} />
           </div>
 
-          {isSpeechRecognitionSupported() && (
-            <div className="mb-6 rounded-lg bg-blue-50 p-4 border border-blue-200">
-              <p className="text-sm text-blue-700 mb-3">
-                💡 Set start and end times, then click to automatically transcribe the audio segment
-              </p>
+          <div className="mb-6 rounded-lg bg-blue-50 p-4 border border-blue-200">
+            <p className="text-sm text-blue-700 mb-3">
+              💡 Set start and end times for a section of audio, then click to transcribe.
+              First use downloads ~75MB Whisper model (cached after).
+            </p>
+            <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={handleAutoTranscribe}
-                disabled={isTranscribing || endTime === 0}
-                className="w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:bg-gray-400"
+                onClick={() => handleAutoTranscribe('english')}
+                disabled={transcribingLang !== null || endTime <= startTime}
+                className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:bg-gray-400"
               >
-                {isTranscribing ? '🎤 Transcribing...' : '🎤 Auto-Transcribe'}
+                {transcribingLang === 'english' ? '⏳ Transcribing...' : '🇬🇧 Transcribe → English'}
+              </button>
+              <button
+                onClick={() => handleAutoTranscribe('spanish')}
+                disabled={transcribingLang !== null || endTime <= startTime}
+                className="rounded bg-orange-500 px-4 py-2 text-white hover:bg-orange-600 disabled:bg-gray-400"
+              >
+                {transcribingLang === 'spanish' ? '⏳ Transcribing...' : '🇪🇸 Transcribe → Spanish'}
               </button>
             </div>
-          )}
-
-          {!isSpeechRecognitionSupported() && (
-            <div className="mb-6 rounded-lg bg-yellow-50 p-4 border border-yellow-200">
-              <p className="text-sm text-yellow-700">
-                ⚠️ Speech Recognition is not supported in this browser. Please enter text manually.
-              </p>
-            </div>
-          )}
+            {modelStatus && (
+              <p className="mt-3 text-sm text-blue-800">{modelStatus}</p>
+            )}
+          </div>
 
           <div className="mb-6 grid grid-cols-2 gap-4">
             <div>
