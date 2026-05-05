@@ -12,7 +12,7 @@ import { AudioPlayer } from '@/components/AudioPlayer';
 type Step = 'select-mix' | 'upload' | 'create-cards';
 
 export default function UploadPage() {
-  const { recordings, uploadRecording, isLoading: recordingsLoading } = useRecordings();
+  const { uploadRecording, isLoading: recordingsLoading } = useRecordings();
   const [step, setStep] = useState<Step>('select-mix');
   const [mixes, setMixes] = useState<Mix[]>([]);
   const [selectedMixId, setSelectedMixId] = useState<string>('');
@@ -112,27 +112,24 @@ export default function UploadPage() {
   if (step === 'select-mix') {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
-        <h1 className="mb-8 text-3xl font-bold">Select or Create a Mix</h1>
+        <h1 className="mb-8 text-3xl font-bold">📚 Choose a Mix to Upload To</h1>
 
         {mixes.length > 0 && (
-          <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
-            <h2 className="mb-4 text-xl font-semibold">Your Mixes</h2>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {mixes.map((mix) => (
-                <button
-                  key={mix.id}
-                  onClick={() => selectMix(mix.id)}
-                  className="rounded-lg border-2 border-gray-300 p-4 text-left hover:border-blue-500 hover:bg-blue-50"
-                >
-                  <p className="font-semibold text-gray-900">{mix.name}</p>
-                </button>
-              ))}
-            </div>
+          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+            {mixes.map((mix) => (
+              <button
+                key={mix.id}
+                onClick={() => selectMix(mix.id)}
+                className="rounded-lg border-2 border-gray-300 bg-white p-6 text-left font-semibold text-gray-900 transition-all hover:border-blue-500 hover:bg-blue-50"
+              >
+                {mix.name}
+              </button>
+            ))}
           </div>
         )}
 
         <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-xl font-semibold">Create New Mix</h2>
+          <h2 className="mb-4 text-xl font-semibold">Create New Mix First</h2>
           <div className="flex gap-3">
             <input
               type="text"
@@ -161,52 +158,22 @@ export default function UploadPage() {
           onClick={() => setStep('select-mix')}
           className="mb-4 rounded bg-gray-300 px-4 py-2 hover:bg-gray-400"
         >
-          ← Change Mix
+          ← Back to Mixes
         </button>
 
-        <h1 className="mb-2 text-3xl font-bold">Upload Recordings</h1>
-        <p className="mb-6 text-gray-600">
-          Uploading to:{' '}
-          <span className="font-semibold">
-            {mixes.find((m) => m.id === selectedMixId)?.name}
-          </span>
-        </p>
+        <div className="mb-6 rounded-lg border-2 border-blue-500 bg-blue-50 p-4">
+          <p className="text-lg font-semibold text-blue-700">
+            📤 Uploading to: <span className="text-blue-900">{mixes.find((m) => m.id === selectedMixId)?.name}</span>
+          </p>
+        </div>
 
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-xl font-semibold">Step 1: Upload Audio Files</h2>
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
           <FileUploader
             onUpload={handleUpload}
             isLoading={recordingsLoading}
             error={error}
           />
         </div>
-
-        {recordings.length > 0 && (
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <h2 className="mb-4 text-xl font-semibold">Your Recordings</h2>
-            <div className="space-y-3">
-              {recordings.map((rec) => (
-                <div
-                  key={rec.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-300 p-4"
-                >
-                  <div>
-                    <p className="font-semibold text-gray-900">{rec.filename}</p>
-                    <p className="text-sm text-gray-600">
-                      Duration: {rec.metadata.duration.toFixed(1)}s
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => selectRecording(rec.id)}
-                    className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-                  >
-                    Create Cards →
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -218,12 +185,12 @@ export default function UploadPage() {
           onClick={() => setStep('upload')}
           className="mb-4 rounded bg-gray-300 px-4 py-2 hover:bg-gray-400"
         >
-          ← Back
+          ← Back to Upload
         </button>
 
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-xl font-semibold">
-            Create Card for: {selectedRecording.filename}
+            Create Card: {selectedRecording.filename}
           </h2>
 
           <div className="mb-6">
