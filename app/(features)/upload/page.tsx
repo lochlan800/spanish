@@ -131,7 +131,7 @@ export default function UploadPage() {
   };
 
   const handleAutoTranscribe = async () => {
-    if (!selectedRecording || endTime === 0) {
+    if (!selectedRecording || !selectedRecording.audioUrl || endTime === 0) {
       setError('Please set start and end times before transcribing');
       return;
     }
