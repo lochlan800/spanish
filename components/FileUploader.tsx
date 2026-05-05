@@ -54,7 +54,9 @@ export function FileUploader({
           console.error('Upload failed:', err);
         }
       }
-      e.currentTarget.value = '';
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
